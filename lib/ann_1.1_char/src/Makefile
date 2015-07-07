@@ -51,14 +51,15 @@ OBJECTS = $(SOURCES:.cpp=.o)
 default:
 	@echo "Specify a target configuration"
 
-targets: $(LIBDIR)/$(ANNLIB)
+targets: $(LIBDIR) $(LIBDIR)/$(ANNLIB)
+
+$(LIBDIR):
+	mkdir -p $(LIBDIR)
 
 $(LIBDIR)/$(ANNLIB): $(OBJECTS)
 	$(MAKELIB) $(ANNLIB) $(OBJECTS)
 	$(RANLIB) $(ANNLIB)
-	cp $(ANNLIB) ../..
-	cp $(ANNLIB) ../../../bin
-	mv $(ANNLIB) $(LIBDIR)
+	mv $(ANNLIB) $(LIBDIR)/
 
 #-----------------------------------------------------------------------------
 # Make object files

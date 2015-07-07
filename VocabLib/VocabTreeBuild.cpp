@@ -192,7 +192,6 @@ int VocabTree::Build(int n, int dim, int depth, int bf, int restarts,
     m_root->BuildRecurse(n, dim, depth, 0, bf, restarts, 
                          vp, means, clustering);
 
-    delete [] vp;
     delete means;
     delete clustering;
 

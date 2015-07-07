@@ -13,16 +13,12 @@ IMAGELIB_OBJS= qsort.o util.o
 
 CFLAGS=$(OTHERFLAGS) $(OPTFLAGS)
 
-IMAGELIB=libimage.a
-
-%.$(P).o : %.c
-	$(CC) -c -o $@ $(CFLAGS) $<
+IMAGELIB=libimage.so
 
 all: $(IMAGELIB)
 
-$(IMAGELIB): $(IMAGELIB_OBJS)
-	ar r $(IMAGELIB) $(IMAGELIB_OBJS)
-	cp $(IMAGELIB) ..
+$(IMAGELIB):
+	gcc -shared -fPIC $(OTHERFLAGS) *.c -o $(IMAGELIB)
 
 clean:
 	rm -f *.o *~ $(IMAGELIB)

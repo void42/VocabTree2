@@ -80,7 +80,7 @@ linux-g++-shared:
 	$(MAKE) targets \
 	"ANNLIB = libANN.so" \
 	"C++ = g++" \
-	"CFLAGS = -O3" \
+	"CFLAGS = -O3 -shared -fPIC" \
 	"MAKELIB = gcc -shared -Wl,-soname,$(ANNLIB) -o $(ANNLIB)" \
 	"RANLIB = true"
 

@@ -81,7 +81,7 @@ linux-g++-shared:
 	$(MAKE) targets \
 	"ANNLIB = libANN_char.so" \
 	"C++ = g++" \
-	"CFLAGS = -g2 -fPIC" \
+	"CFLAGS = -g2 -shared -fPIC" \
 	"MAKELIB = g++ -shared -o $(ANNLIB)" \
 	"RANLIB = true"
 
