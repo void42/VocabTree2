@@ -348,9 +348,9 @@ double kmeans(int n, int dim, int k, int restarts, unsigned char **v,
             long useconds = stop.tv_usec - start.tv_usec;
             double etime = seconds + useconds * 0.000001;    
 
-            printf("Round %d: changed: %d\n", i, changed);
-            printf("Round took %0.3lfs\n", etime);            
-            fflush(stdout);
+            // printf("Round %d: changed: %d\n", i, changed);
+            // printf("Round took %0.3lfs\n", etime);            
+            // fflush(stdout);
 
             gettimeofday(&start, NULL);
 

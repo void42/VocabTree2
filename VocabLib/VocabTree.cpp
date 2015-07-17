@@ -434,8 +434,8 @@ double VocabTree::AddImageToDatabase(int index, int n, unsigned char *v,
     m_root->ClearScores(m_branch_factor);
     unsigned long off = 0;
 
-    // printf("[AddImageToDatabase] Adding image with %d features...\n", n);
-    // fflush(stdout);
+    printf("[AddImageToDatabase] Adding image with %d features...\n", n);
+    fflush(stdout);
 
     for (int i = 0; i < n; i++) {
         unsigned long id = 
