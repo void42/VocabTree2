@@ -81,16 +81,6 @@ double VocabTreeInteriorNode::CountFeatures(int bf) {
   return num_features;
 }
 
-int VocabTreeInteriorNode::ClearScores(int bf) {
-  for (int i = 0; i < bf; i++) {
-    if (m_children[i] != NULL) {
-      m_children[i]->ClearScores(bf);
-    }
-  }
-
-  return 0;
-}
-
 int VocabTreeInteriorNode::ClearDatabase(int bf) {
   for (int i = 0; i < bf; i++) {
     if (m_children[i] != NULL) {
@@ -128,11 +118,6 @@ double VocabTreeLeaf::CountFeatures(int bf) {
   }
 
   return num_features;
-}
-
-int VocabTreeLeaf::ClearScores(int bf) {
-  m_score = 0.0;
-  return 0;
 }
 
 int VocabTreeLeaf::ClearDatabase(int bf) {

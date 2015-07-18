@@ -42,11 +42,13 @@
 
 #include <stdlib.h>
 #include <vector>
+#include <map>
 #include <cstdint>
 
 #include "../lib/ann_1.1_char/include/ANN/ANN.h"
 
 using std::uint8_t;
+using std::map;
 
 /* Types of distances supported */
 typedef enum {
@@ -125,7 +127,8 @@ public:
    *   add   : should this feature be added to the inverted file?
    */
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add) = 0;
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+      map<unsigned long, float> &node_scores) = 0;
 
   /* Update the counts in an inverted file associated with a visual
    * word
@@ -148,7 +151,8 @@ public:
    * Outputs:
    *   q       : array of size num_nodes storing the BoW vector on exit
    */
-  virtual int FillQueryVector(float *q, int bf, double mag_inv) { return 0; }
+  virtual int FillQueryVector(float *q, int bf, double mag_inv,
+      const map<unsigned long, float> &node_scores) { return 0; }
 
   /* Given a query BoW vector, compute its similarity to all the
    * database vectors using the inverted file stored in the tree
@@ -159,12 +163,11 @@ public:
    *   dtype  : type of distance function to use
    *
    * Outputs:
-   *   scores : at exit, array of score for each database image
+   *   image_scores : at exit, array of score for each database image
    *            (similarity to the query vector)
    */
-  virtual int ScoreQuery(float *q, int bf, DistanceType dtype, float *scores) {
-    return 0;
-  }
+  virtual int ScoreQuery(
+      float *q, int bf, DistanceType dtype, float *image_scores) { return 0; }
 
   /* Compute TFIDF weights for each visual word
    *
@@ -187,7 +190,8 @@ public:
   virtual void PopulateLeaves(int bf, int dim, VocabTreeNode **leaves) = 0;
 
   /* Functions for normalizing the database vectors */
-  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype) {
+  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype,
+      const map<unsigned long, float> &node_scores) {
     return 0;
   }
 
@@ -209,8 +213,6 @@ public:
   virtual unsigned long CountLeaves(int bf) const = 0;
 
   virtual double CountFeatures(int bf) = 0;
-
-  virtual int ClearScores(int bf) { return 0; }
 
   virtual int ClearDatabase(int bf) { return 0; }
 
@@ -257,10 +259,8 @@ public:
       double *means, unsigned int *clustering);
 
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor,
-      unsigned int index,
-      int bf, int dim,
-      bool add);
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+      map<unsigned long, float> &node_scores);
 
   virtual int AddFeatureToInvertedFile(
       unsigned int index,
@@ -268,7 +268,7 @@ public:
 
   virtual int ScoreQuery(
       float *q, int bf, DistanceType dtype,
-      float *scores);
+      float *image_scores);
 
   virtual double ComputeTFIDFWeights(int bf, double n);
 
@@ -292,13 +292,12 @@ public:
 
   virtual double CountFeatures(int bf);
 
-  virtual int ClearScores(int bf);
-
   virtual int NormalizeDatabase(
       int bf, int start_index,
       std::vector<float> &mags);
 
-  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype);
+  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype,
+      const map<unsigned long, float> &node_scores);
 
   virtual int ComputeDatabaseMagnitudes(
       int bf, DistanceType dtype,
@@ -309,7 +308,8 @@ public:
 
   virtual int SetConstantLeafWeights(int bf);
 
-  virtual int FillQueryVector(float *q, int bf, double mag_inv);
+  virtual int FillQueryVector(float *q, int bf, double mag_inv,
+      const map<unsigned long, float> &node_scores);
 
   virtual int Combine(VocabTreeNode *other, int bf);
 
@@ -323,7 +323,7 @@ public:
  * a visual word */
 class VocabTreeLeaf : public VocabTreeNode {
 public:
-  VocabTreeLeaf() : VocabTreeNode(), m_score(0.0), m_weight(1.0) { }
+  VocabTreeLeaf() : VocabTreeNode(), m_weight(1.0) { }
 
   virtual ~VocabTreeLeaf() { };
 
@@ -346,14 +346,16 @@ public:
       double *means, unsigned int *clustering);
 
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add);
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+      map<unsigned long, float> &node_scores);
 
   virtual int ScoreQuery(
-      float *q, int bf, DistanceType dtype, float *scores);
+      float *q, int bf, DistanceType dtype, float *image_scores);
 
   virtual int AddFeatureToInvertedFile(unsigned int index, int bf, int dim);
 
-  virtual int FillQueryVector(float *q, int bf, double mag_inv);
+  virtual int FillQueryVector(float *q, int bf, double mag_inv,
+     const map<unsigned long, float> &node_scores);
 
   virtual double ComputeTFIDFWeights(int bf, double n);
 
@@ -367,14 +369,13 @@ public:
 
   virtual void PopulateLeaves(int bf, int dim, VocabTreeNode **leaves);
 
-  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype);
+  virtual double ComputeDatabaseVectorMagnitude(int bf, DistanceType dtype,
+      const map<unsigned long, float> &node_scores);
 
   virtual int ComputeDatabaseMagnitudes(
       int bf, DistanceType dtype,
       int start_index,
       std::vector<float> &mags);
-
-  virtual int ClearScores(int bf);
 
   virtual int ClearDatabase(int bf);
 
@@ -404,9 +405,6 @@ public:
 
   virtual int GetMaxDatabaseImageIndex(int bf) const;
 
-  /* Member variables */
-  float m_score;
-
   /* Current, temporary score for the current image */
   float m_weight;
 
@@ -420,7 +418,8 @@ public:
   VocabTreeFlatNode() : VocabTreeInteriorNode() { }
 
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add);
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+      map<unsigned long, float> &node_scores);
 
   void BuildANNTree(int num_leaves, int dim);
 
@@ -472,7 +471,8 @@ public:
    *   index : index of the image that this feature belongs to
    *   add   : should this feature be added to the inverted file?
    */
-  int PushAndScoreFeature(uint8_t *descriptor, unsigned int index, bool add);
+  int PushAndScoreFeature(uint8_t *descriptor, unsigned int index, bool add,
+      map<unsigned long, float> &node_scores);
 
   /* Add an image to the database.
    *
@@ -508,7 +508,7 @@ public:
    *   Returns the magnitude of the query vector
    */
   double ScoreQueryKeys(
-      int ndescriptors, bool normalize, uint8_t *descriptors, float *scores);
+      int ndescriptors, bool normalize, uint8_t *descriptors, float *image_scores);
 
   /* Empty out the database */
   int ClearDatabase();

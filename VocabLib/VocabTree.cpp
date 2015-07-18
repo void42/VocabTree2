@@ -88,7 +88,8 @@ void VocabTreeLeaf::Clear(int bf) {
 }
 
 unsigned long VocabTreeInteriorNode::PushAndScoreFeature(
-    uint8_t *descriptor, unsigned int index, int bf, int dim, bool add) {
+    uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+    map<unsigned long, float> &node_scores) {
   unsigned long min_dist = ULONG_MAX;
   int best_idx = 0;
 
@@ -105,14 +106,15 @@ unsigned long VocabTreeInteriorNode::PushAndScoreFeature(
   }
 
   unsigned long r = m_children[best_idx]->PushAndScoreFeature(
-      descriptor, index, bf, dim, add);
+      descriptor, index, bf, dim, add, node_scores);
 
   return r;
 }
 
 unsigned long VocabTreeLeaf::PushAndScoreFeature(
-    uint8_t *descriptor, unsigned int index, int bf, int dim, bool add) {
-  m_score += m_weight;
+    uint8_t *descriptor, unsigned int index, int bf, int dim, bool add,
+    map<unsigned long, float> &node_scores) {
+  node_scores[m_id] += m_weight;
 
   if (add) {
     /* Update the inverted file */
@@ -170,28 +172,30 @@ double VocabTreeLeaf::ComputeTFIDFWeights(int bf, double n) {
 }
 
 int VocabTreeInteriorNode::FillQueryVector(
-    float *q, int bf,
-    double mag_inv) {
+    float *q, int bf, double mag_inv, const map<unsigned long, float> &node_scores) {
   for (int i = 0; i < bf; i++) {
     if (m_children[i] != NULL) {
-      m_children[i]->FillQueryVector(q, bf, mag_inv);
+      m_children[i]->FillQueryVector(q, bf, mag_inv, node_scores);
     }
   }
 
   return 0;
 }
 
-int VocabTreeLeaf::FillQueryVector(float *q, int bf, double mag_inv) {
-  q[m_id] = m_score * mag_inv;
+int VocabTreeLeaf::FillQueryVector(float *q, int bf, double mag_inv,
+    const map<unsigned long, float> &node_scores) {
+  auto search = node_scores.find(m_id);
+  float score = (search != node_scores.end()) ? search->first : 0.0;
+  q[m_id] = score * mag_inv;
   return 0;
 }
 
 int VocabTreeInteriorNode::ScoreQuery(
-    float *q, int bf, DistanceType dtype, float *scores) {
-  /* Pass the scores to the children for updating */
+    float *q, int bf, DistanceType dtype, float *image_scores) {
+  /* Pass the image_scores to the children for updating */
   for (int i = 0; i < bf; i++) {
     if (m_children[i] != NULL) {
-      m_children[i]->ScoreQuery(q, bf, dtype, scores);
+      m_children[i]->ScoreQuery(q, bf, dtype, image_scores);
     }
   }
 
@@ -199,7 +203,7 @@ int VocabTreeInteriorNode::ScoreQuery(
 }
 
 int VocabTreeLeaf::ScoreQuery(
-    float *q, int bf, DistanceType dtype, float *scores) {
+    float *q, int bf, DistanceType dtype, float *image_scores) {
   /* Early exit */
   if (q[m_id] == 0.0) return 0;
 
@@ -210,10 +214,10 @@ int VocabTreeLeaf::ScoreQuery(
 
     switch (dtype) {
       case DistanceDot:
-        scores[img] += q[m_id] * m_image_list[i].m_count;
+        image_scores[img] += q[m_id] * m_image_list[i].m_count;
         break;
       case DistanceMin:
-        scores[img] += MIN(q[m_id], m_image_list[i].m_count);
+        image_scores[img] += MIN(q[m_id], m_image_list[i].m_count);
         break;
     }
   }
@@ -234,12 +238,13 @@ double ComputeMagnitude(DistanceType dtype, double dim) {
 }
 
 double VocabTreeInteriorNode::ComputeDatabaseVectorMagnitude(
-    int bf, DistanceType dtype) {
+    int bf, DistanceType dtype, const map<unsigned long, float> &node_scores) {
   double mag = 0.0;
 
   for (int i = 0; i < bf; i++) {
     if (m_children[i] != NULL) {
-      mag += m_children[i]->ComputeDatabaseVectorMagnitude(bf, dtype);
+      mag += m_children[i]->ComputeDatabaseVectorMagnitude(
+          bf, dtype, node_scores);
     }
   }
 
@@ -247,8 +252,9 @@ double VocabTreeInteriorNode::ComputeDatabaseVectorMagnitude(
 }
 
 double VocabTreeLeaf::ComputeDatabaseVectorMagnitude(
-    int bf, DistanceType dtype) {
-  double dim = m_score;
+    int bf, DistanceType dtype, const map<unsigned long, float> &node_scores) {
+  auto search = node_scores.find(m_id);
+  double dim = (search != node_scores.end()) ? search->first : 0.0;;
   double mag = ComputeMagnitude(dtype, dim);
 
   return mag;
@@ -349,9 +355,11 @@ int VocabTreeLeaf::GetMaxDatabaseImageIndex(int bf) const {
 
 /* Implementations of driver functions */
 int VocabTree::PushAndScoreFeature(
-    uint8_t *descriptor, unsigned int index, bool add) {
+    uint8_t *descriptor, unsigned int index, bool add,
+    map<unsigned long, float> &node_scores) {
   qsort_descending();
-  m_root->PushAndScoreFeature(descriptor, index, m_branch_factor, m_dim, add);
+  m_root->PushAndScoreFeature(
+      descriptor, index, m_branch_factor, m_dim, add, node_scores);
 
   return 0;
 }
@@ -381,7 +389,8 @@ int VocabTree::NormalizeDatabase(int start_index, int num_db_images) {
 
 double VocabTree::AddImageToDatabase(
     int index, int ndescriptors, uint8_t *descriptors, unsigned long *ids) {
-  m_root->ClearScores(m_branch_factor);
+  map<unsigned long, float> node_scores;
+
   unsigned long off = 0;
 
   printf("[AddImageToDatabase] Adding image with %d features...\n",
@@ -390,7 +399,8 @@ double VocabTree::AddImageToDatabase(
 
   for (int i = 0; i < ndescriptors; i++) {
     unsigned long id = m_root->PushAndScoreFeature(
-        descriptors + off, index, m_branch_factor, m_dim, true /*add*/);
+        descriptors + off, index, m_branch_factor, m_dim, true /*add*/,
+        node_scores);
 
     if (ids != NULL) {
       ids[i] = id;
@@ -401,7 +411,7 @@ double VocabTree::AddImageToDatabase(
   }
 
   double mag = m_root->ComputeDatabaseVectorMagnitude(
-      m_branch_factor, m_distance_type);
+      m_branch_factor, m_distance_type, node_scores);
 
   m_database_images++;
 
@@ -418,22 +428,23 @@ double VocabTree::AddImageToDatabase(
 
 /* Returns the weighted magnitude of the query vector */
 double VocabTree::ScoreQueryKeys(
-    int ndescriptors, bool normalize, uint8_t *descriptors, float *scores) {
+    int ndescriptors, bool normalize, uint8_t *descriptors, float *image_scores) {
   qsort_descending();
 
+  map<unsigned long, float> node_scores;
+
   /* Compute the query vector */
-  m_root->ClearScores(m_branch_factor);
   unsigned long off = 0;
   for (int i = 0; i < ndescriptors; i++) {
     m_root->PushAndScoreFeature(
-        descriptors + off, 0, m_branch_factor, m_dim, false);
+        descriptors + off, 0, m_branch_factor, m_dim, false /*add*/,
+        node_scores);
 
     off += m_dim;
   }
 
   double mag = m_root->ComputeDatabaseVectorMagnitude(
-      m_branch_factor,
-      m_distance_type);
+      m_branch_factor, m_distance_type, node_scores);
 
   if (m_distance_type == DistanceDot)
     mag = sqrt(mag);
@@ -443,12 +454,12 @@ double VocabTree::ScoreQueryKeys(
   float *q = new float[num_nodes];
 
   if (normalize) {
-    m_root->FillQueryVector(q, m_branch_factor, 1.0 / mag);
+    m_root->FillQueryVector(q, m_branch_factor, 1.0 / mag, node_scores);
   } else {
-    m_root->FillQueryVector(q, m_branch_factor, 1.0);
+    m_root->FillQueryVector(q, m_branch_factor, 1.0, node_scores);
   }
 
-  m_root->ScoreQuery(q, m_branch_factor, m_distance_type, scores);
+  m_root->ScoreQuery(q, m_branch_factor, m_distance_type, image_scores);
 
   delete[] q;
 
