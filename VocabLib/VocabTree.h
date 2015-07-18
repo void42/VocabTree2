@@ -125,8 +125,7 @@ public:
    *   add   : should this feature be added to the inverted file?
    */
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim,
-      bool add = true) = 0;
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add) = 0;
 
   /* Update the counts in an inverted file associated with a visual
    * word
@@ -261,7 +260,7 @@ public:
       uint8_t *descriptor,
       unsigned int index,
       int bf, int dim,
-      bool add = true);
+      bool add);
 
   virtual int AddFeatureToInvertedFile(
       unsigned int index,
@@ -347,8 +346,7 @@ public:
       double *means, unsigned int *clustering);
 
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim,
-      bool add = true);
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add);
 
   virtual int ScoreQuery(
       float *q, int bf, DistanceType dtype, float *scores);
@@ -422,7 +420,7 @@ public:
   VocabTreeFlatNode() : VocabTreeInteriorNode() { }
 
   virtual unsigned long PushAndScoreFeature(
-      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add = true);
+      uint8_t *descriptor, unsigned int index, int bf, int dim, bool add);
 
   void BuildANNTree(int num_leaves, int dim);
 

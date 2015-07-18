@@ -390,7 +390,7 @@ double VocabTree::AddImageToDatabase(
 
   for (int i = 0; i < ndescriptors; i++) {
     unsigned long id = m_root->PushAndScoreFeature(
-        descriptors + off, index, m_branch_factor, m_dim);
+        descriptors + off, index, m_branch_factor, m_dim, true /*add*/);
 
     if (ids != NULL) {
       ids[i] = id;
@@ -426,8 +426,7 @@ double VocabTree::ScoreQueryKeys(
   unsigned long off = 0;
   for (int i = 0; i < ndescriptors; i++) {
     m_root->PushAndScoreFeature(
-        descriptors + off, 0,
-        m_branch_factor, m_dim, false);
+        descriptors + off, 0, m_branch_factor, m_dim, false);
 
     off += m_dim;
   }
