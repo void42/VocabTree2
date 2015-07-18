@@ -10,6 +10,7 @@ INCL_PATH=-I../lib/ann_1.1/include/ANN -I../lib/ann_1.1_char/include/ANN \
 LIB_PATH=-L../lib/ann_1.1/lib -L../lib/ann_1.1_char/lib -L../lib/imagelib
 LIB_FLAGS=-Wl,-z,defs -Wl,--as-needed -lANN -lANN_char -limage
 
+CC_FLAGS=-std=c++11
 CPP_FLAGS=$(INCL_PATH) $(OTHER_FLAGS) $(OPT_FLAGS)
 
 LIB=libvocab.so
@@ -21,6 +22,7 @@ all: $(LIB)
 
 %.o: %.cpp
 	g++ -fPIC \
+		$(CC_FLAGS) \
 		$(OPT_FLAGS) \
 		$(OTHER_FLAGS) \
 		$(INCL_PATH) \
@@ -29,6 +31,7 @@ all: $(LIB)
 
 $(LIB): $(OBJ_FILES)
 	g++ -shared -fPIC \
+		$(CC_FLAGS) \
 		$(OPT_FLAGS) \
 		$(OTHER_FLAGS) \
 		$(INCL_PATH) \

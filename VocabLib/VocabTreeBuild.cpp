@@ -37,166 +37,157 @@
 /* VocabTreeBuild.cpp */
 /* Routines for building a vocab tree */
 
+#include <cstdio>
+
 #include "VocabTree.h"
 #include "kmeans.h"
 #include "util.h"
 
-int VocabTreeLeaf::BuildRecurse(int n, int dim, int depth, 
-                                int depth_curr, int bf, 
-                                int restarts, unsigned char **v,
-                                double *means, unsigned int *clustering)
-{
-    /* Nothing to do on the bottom level, everything was taken care of
-     * above us */
-    return 0;
+using std::printf;
+
+int VocabTreeLeaf::BuildRecurse(int ndescriptors, int dim, int depth,
+    int depth_curr, int bf, int restarts, uint8_t **descriptors, double *means,
+    unsigned int *clustering) {
+  /* Nothing to do on the bottom level, everything was taken care of
+   * above us */
+  return 0;
 }
 
-int VocabTreeInteriorNode::BuildRecurse(int n, int dim, int depth, 
-                                        int depth_curr, int bf, 
-                                        int restarts, unsigned char **v,
-                                        double *means, 
-                                        unsigned int *clustering)
-{
-    if (depth_curr > depth)
-        return 0;
-
-    if (depth_curr < 2) {
-        for (int i = 0; i < depth_curr; i++) 
-            printf(" ");
-
-        printf("[BuildRecurse] (level %d): Running k-means (%d features)\n",
-               depth_curr, n);
-        fflush(stdout);
-    }
-
-    /* Allocate the children for this node */
-    m_children = new VocabTreeNode *[bf];
-
-    /* Run k-means */
-    double error = kmeans(n, dim, bf, restarts, v, means, clustering);
-
-    double error_means = 0.0;
-    for (int i = 0; i < bf; i++) {
-        for (int j = 0; j < dim; j++) {
-            double d = means[i * dim + j] - m_desc[j];
-            error_means += d * d;
-        }
-    }
-
-    if (depth_curr < 2) {
-        for (int i = 0; i < depth_curr; i++) 
-            printf(" ");
-
-        printf("[BuildRecurse] (level %d): "
-               "%d features, error: %0.3f, %0.3f\n", 
-               depth_curr, n, error / n, error_means);
-        fflush(stdout);
-    }
-
-    int *counts = new int[bf];
-    
-    for (int i = 0; i < bf; i++) {
-        counts[i] = 0;
-    }
-    
-    for (int i = 0; i < n; i++) {
-        counts[clustering[i]]++;
-    }
-
-    /* Create the children */
-    for (int i = 0; i < bf; i++) {
-        if (counts[i] > 0) {
-            if (depth_curr == depth || counts[i] <= 2 * bf) {
-                m_children[i] = new VocabTreeLeaf();
-            } else {
-                m_children[i] = new VocabTreeInteriorNode();
-            }
-
-            m_children[i]->m_desc = new unsigned char[dim];
-
-            for (int j = 0; j < dim; j++) {
-                m_children[i]->m_desc[j] = iround(means[i * dim + j]);
-            }
-        } else {
-            m_children[i] = NULL;
-        }
-    }
-
-    if (depth_curr < depth) {
-        /* Reorder the pointers to the vectors */
-        int idx = 0;
-        for (int i = 0; i < bf; i++) {
-            for (int j = 0; j < n; j++) {
-                if ((int) clustering[j] == i) {
-                    unsigned char *v_tmp = v[idx];
-                    v[idx] = v[j];
-                    v[j] = v_tmp;
-
-                    unsigned int tmp = clustering[idx];
-                    clustering[idx] = clustering[j];
-                    clustering[j] = tmp;
-
-                    idx++;
-                }
-            }
-        }
-    
-        int off = 0;
-        for (int i = 0; i < bf; i++) {
-            if (m_children[i] != NULL) {
-                m_children[i]->BuildRecurse(counts[i], dim, depth, depth_curr + 1,
-                                            bf, restarts, v + off, means, 
-                                            clustering);
-            }
-
-            off += counts[i];
-        }
-    }
-    
-    delete [] counts;
-
+int VocabTreeInteriorNode::BuildRecurse(int ndescriptors, int dim, int depth,
+    int depth_curr, int bf, int restarts, uint8_t **descriptors, double *means,
+    unsigned int *clustering) {
+  if (depth_curr > depth) {
     return 0;
+  }
+
+  if (depth_curr < 2) {
+    for (int i = 0; i < depth_curr; i++)
+      printf(" ");
+
+    printf(
+        "[BuildRecurse] (level %d): Running k-means (%d features)\n",
+        depth_curr, ndescriptors);
+    fflush(stdout);
+  }
+
+  /* Allocate the children for this node */
+  m_children = new VocabTreeNode *[bf];
+
+  /* Run k-means */
+  double error = kmeans(ndescriptors, dim, bf, restarts, descriptors, means, clustering);
+
+  double error_means = 0.0;
+  for (int i = 0; i < bf; i++) {
+    for (int j = 0; j < dim; j++) {
+      double d = means[i * dim + j] - m_desc[j];
+      error_means += d * d;
+    }
+  }
+
+  if (depth_curr < 2) {
+    for (int i = 0; i < depth_curr; i++) {
+      printf(" ");
+    }
+    printf("[BuildRecurse] (level %d): %d features, error: %0.3f, %0.3f\n",
+           depth_curr, ndescriptors, error / ndescriptors, error_means);
+    fflush(stdout);
+  }
+
+  int *counts = new int[bf];
+
+  for (int i = 0; i < bf; i++) {
+    counts[i] = 0;
+  }
+
+  for (int i = 0; i < ndescriptors; i++) {
+    counts[clustering[i]]++;
+  }
+
+  /* Create the children */
+  for (int i = 0; i < bf; i++) {
+    if (counts[i] > 0) {
+      if (depth_curr == depth || counts[i] <= 2 * bf) {
+        m_children[i] = new VocabTreeLeaf();
+      } else {
+        m_children[i] = new VocabTreeInteriorNode();
+      }
+
+      m_children[i]->m_desc = new uint8_t[dim];
+
+      for (int j = 0; j < dim; j++) {
+        m_children[i]->m_desc[j] = iround(means[i * dim + j]);
+      }
+    } else {
+      m_children[i] = NULL;
+    }
+  }
+
+  if (depth_curr < depth) {
+    /* Reorder the pointers to the vectors */
+    int idx = 0;
+    for (int i = 0; i < bf; i++) {
+      for (int j = 0; j < ndescriptors; j++) {
+        if ((int) clustering[j] == i) {
+          uint8_t *v_tmp = descriptors[idx];
+          descriptors[idx] = descriptors[j];
+          descriptors[j] = v_tmp;
+
+          unsigned int tmp = clustering[idx];
+          clustering[idx] = clustering[j];
+          clustering[j] = tmp;
+
+          idx++;
+        }
+      }
+    }
+
+    int off = 0;
+    for (int i = 0; i < bf; i++) {
+      if (m_children[i] != NULL) {
+        m_children[i]->BuildRecurse(
+            counts[i], dim, depth, depth_curr + 1,
+            bf, restarts, descriptors + off, means,
+            clustering);
+      }
+      off += counts[i];
+    }
+  }
+
+  delete[] counts;
+
+  return 0;
 }
 
-int VocabTree::Build(int n, int dim, int depth, int bf, int restarts, 
-                     unsigned char **vp)
-{
-    printf("[VocabTree::Build] Building tree from %d features\n", n);
-    printf("[VocabTree::Build]   with depth %d, branching factor %d\n", 
-           depth, bf);
-    printf("[VocabTree::Build]   and restarts %d\n", restarts);
-    fflush(stdout);
+int VocabTree::Build(int ndescriptors, int dim, int depth, int bf, int restarts,
+    uint8_t **descriptors) {
+  printf("[VocabTree::Build] Building tree from %d features\n", ndescriptors);
+  printf(
+      "[VocabTree::Build]   with depth %d, branching factor %d\n",
+      depth, bf);
+  printf("[VocabTree::Build]   and restarts %d\n", restarts);
+  fflush(stdout);
 
-    m_depth = depth;
-    m_dim = dim;
-    m_branch_factor = bf;
+  m_depth = depth;
+  m_dim = dim;
+  m_branch_factor = bf;
 
-    double *means = new double[bf * dim];
-    unsigned int *clustering = new unsigned int[n];
+  double *means = new double[bf * dim];
+  unsigned int *clustering = new unsigned int[ndescriptors];
 
-    if (means == NULL) {
-        printf("[VocabTree::Build] Error allocating means\n");
-        exit(-1);
-    }
+  m_root = new VocabTreeInteriorNode();
+  m_root->m_desc = new uint8_t[dim];
+  for (int i = 0; i < dim; i++) {
+    m_root->m_desc[i] = 0;
+  }
 
-    if (clustering == NULL) {
-        printf("[VocabTree::Build] Error allocating clustering\n");
-        exit(-1);
-    }
+  m_root->BuildRecurse(
+      ndescriptors, dim, depth, 0, bf, restarts, descriptors, means, clustering);
 
-    m_root = new VocabTreeInteriorNode();
-    m_root->m_desc = new unsigned char[dim];
-    for (int i = 0; i < dim; i++) 
-        m_root->m_desc[i] = 0;
-    
-    m_root->BuildRecurse(n, dim, depth, 0, bf, restarts, 
-                         vp, means, clustering);
+  delete means;
+  delete clustering;
 
-    delete means;
-    delete clustering;
+  printf("[VocabTree::Build] Finished building tree.\n");
+  fflush(stdout);
 
-    printf("[VocabTree::Build] Finished building tree.\n");
-    fflush(stdout);
-
-    return 0;
+  return 0;
 }

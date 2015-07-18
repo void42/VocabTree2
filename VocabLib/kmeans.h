@@ -18,7 +18,8 @@
  *                       to clusters -- clustering[i] contains the
  *                       cluster ID for point i
  */
-double kmeans(int n, int dim, int k, int restarts, unsigned char **v, 
-              double *means, unsigned int *clustering);
+double kmeans(
+    int n, int dim, int k, int restarts, unsigned char **v,
+    double *means, unsigned int *clustering);
 
 #endif /* __KMEANS_H__ */
