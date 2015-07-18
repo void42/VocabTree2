@@ -3,15 +3,13 @@
 MACHTYPE=$(shell uname -m)
 
 OPT_FLAGS=-g -O3 -ffast-math -Wall -mfpmath=sse -msse2 -funroll-loops -march=core2
-OTHER_FLAGS=-Wall -fopenmp -pthread
 
 INCL_PATH=-I../lib/ann_1.1/include/ANN -I../lib/ann_1.1_char/include/ANN \
 	-I../lib/imagelib
 LIB_PATH=-L../lib/ann_1.1/lib -L../lib/ann_1.1_char/lib -L../lib/imagelib
 LIB_FLAGS=-Wl,-z,defs -Wl,--as-needed -lANN -lANN_char -limage
 
-CC_FLAGS=-std=c++11
-CPP_FLAGS=$(INCL_PATH) $(OTHER_FLAGS) $(OPT_FLAGS)
+CC_FLAGS=-std=c++11 -Wall -pthread -fopenmp
 
 LIB=libvocab.so
 
@@ -21,19 +19,17 @@ OBJ_FILES := $(notdir $(CPP_FILES:.cpp=.o))
 all: $(LIB)
 
 %.o: %.cpp
-	g++ -fPIC \
+	clang++ -fPIC \
 		$(CC_FLAGS) \
 		$(OPT_FLAGS) \
-		$(OTHER_FLAGS) \
 		$(INCL_PATH) \
 		$(LIB_PATH) \
 		-c -o $@ $<
 
 $(LIB): $(OBJ_FILES)
-	g++ -shared -fPIC \
+	clang++ -shared -fPIC \
 		$(CC_FLAGS) \
 		$(OPT_FLAGS) \
-		$(OTHER_FLAGS) \
 		$(INCL_PATH) \
 		$(LIB_PATH) \
 		-o $@ $^ \
